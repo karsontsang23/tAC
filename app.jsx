@@ -1,3 +1,11 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import Sidebar from './components/Sidebar.jsx';
+import Header from './components/Header.jsx';
+import ChatMessage from './components/ChatMessage.jsx';
+import MessageInput from './components/MessageInput.jsx';
+import { chatAgent } from './utils/chatAgent.js';
+
 function App() {
     try {
         const [conversations, setConversations] = React.useState([]);
@@ -146,4 +154,5 @@ function App() {
     }
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);

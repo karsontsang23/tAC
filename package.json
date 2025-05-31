@@ -2,7 +2,7 @@
   "name": "ai-chat",
   "version": "1.0.0",
   "description": "AI Chat Interface",
-  "main": "app.js",
+  "main": "app.jsx",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

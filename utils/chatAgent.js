@@ -1,4 +1,4 @@
-async function chatAgent(message, previousMessages) {
+export async function chatAgent(message, previousMessages) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
