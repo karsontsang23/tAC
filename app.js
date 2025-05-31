@@ -99,7 +99,7 @@ function App() {
         }, []);
 
         return (
-            <div className="chat-container" data-name="app" data-file="app.js">
+            <div className="chat-container">
                 <Sidebar
                     conversations={conversations}
                     currentConversationId={currentConversationId}
