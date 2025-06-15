@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Header({ onToggleSidebar, currentConversation }) {
+export default function Header({ onToggleSidebar, currentConversation, user, onSignIn, onSignOut }) {
     return (
         <header className="chat-header">
             <div className="header-left">
@@ -17,17 +17,34 @@ export default function Header({ onToggleSidebar, currentConversation }) {
             </div>
             
             <div className="header-actions">
+                {user ? (
+                    <>
+                        <div className="header-user-info">
+                            <span className="user-email-header">{user.email}</span>
+                        </div>
+                        <button 
+                            onClick={onSignOut}
+                            className="btn btn-ghost btn-icon"
+                            aria-label="Sign out"
+                        >
+                            <span className="material-icons-round">logout</span>
+                        </button>
+                    </>
+                ) : (
+                    <button 
+                        onClick={onSignIn}
+                        className="btn btn-primary"
+                        aria-label="Sign in"
+                    >
+                        <span className="material-icons-round">login</span>
+                        Sign In
+                    </button>
+                )}
                 <button 
                     className="btn btn-ghost btn-icon"
                     aria-label="Settings"
                 >
                     <span className="material-icons-round">settings</span>
-                </button>
-                <button 
-                    className="btn btn-ghost btn-icon"
-                    aria-label="More options"
-                >
-                    <span className="material-icons-round">more_vert</span>
                 </button>
             </div>
         </header>

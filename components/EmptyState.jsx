@@ -1,32 +1,44 @@
 import React from 'react';
 
-export default function EmptyState({ onStartChat }) {
+export default function EmptyState({ onStartChat, user, onSignIn }) {
     const suggestions = [
         {
             icon: 'lightbulb',
             title: 'Creative Writing',
-            description: 'Help me write a story or poem'
+            description: 'Help me write a story or poem',
+            prompt: 'Help me write a creative short story about space exploration'
         },
         {
             icon: 'code',
             title: 'Code Assistant',
-            description: 'Debug code or explain programming concepts'
+            description: 'Debug code or explain programming concepts',
+            prompt: 'Explain how React hooks work with examples'
         },
         {
             icon: 'school',
             title: 'Learning Helper',
-            description: 'Explain complex topics in simple terms'
+            description: 'Explain complex topics in simple terms',
+            prompt: 'Explain quantum physics in simple terms'
         },
         {
             icon: 'business',
             title: 'Business Ideas',
-            description: 'Brainstorm and develop business concepts'
+            description: 'Brainstorm and develop business concepts',
+            prompt: 'Help me brainstorm innovative startup ideas for 2024'
         }
     ];
 
     const handleSuggestionClick = (suggestion) => {
-        // This would typically send a predefined message
-        console.log('Suggestion clicked:', suggestion);
+        if (user) {
+            // Create a mock message event to send the suggestion
+            const mockEvent = {
+                preventDefault: () => {},
+                target: { value: suggestion.prompt }
+            };
+            onStartChat(suggestion.prompt);
+        } else {
+            onSignIn();
+        }
     };
 
     return (
@@ -41,8 +53,20 @@ export default function EmptyState({ onStartChat }) {
             
             <p className="empty-state-subtitle">
                 I'm here to assist you with questions, creative tasks, problem-solving, and much more. 
-                Start a conversation below or try one of these suggestions.
+                {user ? 'Start a conversation below or try one of these suggestions.' : 'Sign in to save your conversations and try these suggestions.'}
             </p>
+
+            {!user && (
+                <div className="auth-cta">
+                    <button 
+                        onClick={onSignIn}
+                        className="btn btn-primary auth-cta-button"
+                    >
+                        <span className="material-icons-round">login</span>
+                        Sign In to Get Started
+                    </button>
+                </div>
+            )}
             
             <div className="suggestions-grid">
                 {suggestions.map((suggestion, index) => (
@@ -59,6 +83,11 @@ export default function EmptyState({ onStartChat }) {
                             <h3 className="suggestion-title">{suggestion.title}</h3>
                             <p className="suggestion-description">{suggestion.description}</p>
                         </div>
+                        {!user && (
+                            <div className="suggestion-lock">
+                                <span className="material-icons-round">lock</span>
+                            </div>
+                        )}
                     </button>
                 ))}
             </div>

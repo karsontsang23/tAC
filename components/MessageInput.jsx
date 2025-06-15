@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function MessageInput({ onSendMessage, isLoading, disabled }) {
+export default function MessageInput({ onSendMessage, isLoading, disabled, user }) {
     const [message, setMessage] = React.useState('');
     const textareaRef = React.useRef(null);
     
@@ -31,7 +31,13 @@ export default function MessageInput({ onSendMessage, isLoading, disabled }) {
         textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
     };
 
-    const canSend = message.trim() && !isLoading && !disabled;
+    const canSend = message.trim() && !isLoading && !disabled && user;
+    
+    const getPlaceholder = () => {
+        if (!user) return "Sign in to start chatting...";
+        if (disabled) return "Start a new conversation to begin chatting...";
+        return "Type your message here...";
+    };
     
     return (
         <div className="message-input-container">
@@ -42,9 +48,9 @@ export default function MessageInput({ onSendMessage, isLoading, disabled }) {
                         value={message}
                         onChange={handleTextareaChange}
                         onKeyDown={handleKeyDown}
-                        placeholder={disabled ? "Start a new conversation to begin chatting..." : "Type your message here..."}
+                        placeholder={getPlaceholder()}
                         className="message-textarea"
-                        disabled={disabled}
+                        disabled={!user || disabled}
                         rows="1"
                         aria-label="Message input"
                     />
@@ -62,6 +68,13 @@ export default function MessageInput({ onSendMessage, isLoading, disabled }) {
                         )}
                     </button>
                 </form>
+                
+                {!user && (
+                    <div className="input-auth-hint">
+                        <span className="material-icons-round">info</span>
+                        Sign in to save your conversations and chat history
+                    </div>
+                )}
             </div>
         </div>
     );
