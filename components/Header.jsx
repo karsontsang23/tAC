@@ -1,18 +1,33 @@
 import React from 'react';
 
-export default function Header({ onToggleSidebar }) {
+export default function Header({ onToggleSidebar, currentConversation }) {
     return (
-        <header className="border-b border-amber-200 p-4 flex items-center justify-between bg-white">
-            <button 
-                onClick={onToggleSidebar}
-                className="p-2 hover:bg-amber-50 rounded-lg md:hidden"
-            >
-                <span className="material-icons">menu</span>
-            </button>
-            <h1 className="text-xl font-semibold text-amber-600">AI Chat</h1>
-            <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-amber-50 rounded-lg">
-                    <span className="material-icons">settings</span>
+        <header className="chat-header">
+            <div className="header-left">
+                <button 
+                    onClick={onToggleSidebar}
+                    className="btn btn-ghost btn-icon md:hidden"
+                    aria-label="Toggle sidebar"
+                >
+                    <span className="material-icons-round">menu</span>
+                </button>
+                <h1 className="header-title">
+                    {currentConversation?.title || 'AI Chat'}
+                </h1>
+            </div>
+            
+            <div className="header-actions">
+                <button 
+                    className="btn btn-ghost btn-icon"
+                    aria-label="Settings"
+                >
+                    <span className="material-icons-round">settings</span>
+                </button>
+                <button 
+                    className="btn btn-ghost btn-icon"
+                    aria-label="More options"
+                >
+                    <span className="material-icons-round">more_vert</span>
                 </button>
             </div>
         </header>

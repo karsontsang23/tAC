@@ -4,137 +4,193 @@ import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import ChatMessage from './components/ChatMessage.jsx';
 import MessageInput from './components/MessageInput.jsx';
+import EmptyState from './components/EmptyState.jsx';
 import { chatAgent } from './utils/chatAgent.js';
 
 function App() {
-    try {
-        const [conversations, setConversations] = React.useState([]);
-        const [currentConversationId, setCurrentConversationId] = React.useState(null);
-        const [messages, setMessages] = React.useState([]);
-        const [isLoading, setIsLoading] = React.useState(false);
-        const [sidebarOpen, setSidebarOpen] = React.useState(false);
-        const messagesEndRef = React.useRef(null);
+    const [conversations, setConversations] = React.useState([]);
+    const [currentConversationId, setCurrentConversationId] = React.useState(null);
+    const [messages, setMessages] = React.useState([]);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [sidebarOpen, setSidebarOpen] = React.useState(false);
+    const messagesEndRef = React.useRef(null);
 
-        const scrollToBottom = () => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    React.useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    const createNewConversation = () => {
+        const newConversation = {
+            id: Date.now().toString(),
+            title: 'New conversation',
+            messages: [],
+            createdAt: new Date().toISOString()
         };
+        
+        setConversations(prev => [newConversation, ...prev]);
+        setCurrentConversationId(newConversation.id);
+        setMessages([]);
+        setSidebarOpen(false);
+    };
 
-        React.useEffect(() => {
-            scrollToBottom();
-        }, [messages]);
-
-        const createNewConversation = () => {
-            const newConversation = {
-                id: Date.now().toString(),
-                title: 'New conversation',
-                messages: []
-            };
-            
-            setConversations(prev => [newConversation, ...prev]);
-            setCurrentConversationId(newConversation.id);
-            setMessages([]);
+    const selectConversation = (conversationId) => {
+        const conversation = conversations.find(c => c.id === conversationId);
+        if (conversation) {
+            setCurrentConversationId(conversationId);
+            setMessages(conversation.messages);
             setSidebarOpen(false);
-        };
+        }
+    };
 
-        const selectConversation = (conversationId) => {
-            const conversation = conversations.find(c => c.id === conversationId);
-            if (conversation) {
-                setCurrentConversationId(conversationId);
-                setMessages(conversation.messages);
+    const updateConversationTitle = (conversationId, firstMessage) => {
+        const title = firstMessage.length > 40 
+            ? firstMessage.substring(0, 40) + '...' 
+            : firstMessage;
+        
+        setConversations(prev => 
+            prev.map(conv => 
+                conv.id === conversationId 
+                    ? { ...conv, title } 
+                    : conv
+            )
+        );
+    };
+
+    const sendMessage = async (messageContent) => {
+        if (!currentConversationId) {
+            createNewConversation();
+            return;
+        }
+
+        const userMessage = { 
+            role: 'user', 
+            content: messageContent,
+            timestamp: new Date().toISOString()
+        };
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
+        setIsLoading(true);
+
+        if (messages.length === 0) {
+            updateConversationTitle(currentConversationId, messageContent);
+        }
+
+        try {
+            const response = await chatAgent(messageContent, messages);
+            const assistantMessage = { 
+                role: 'assistant', 
+                content: response,
+                timestamp: new Date().toISOString()
+            };
+            const finalMessages = [...newMessages, assistantMessage];
+            
+            setMessages(finalMessages);
+            
+            setConversations(prev => 
+                prev.map(conv => 
+                    conv.id === currentConversationId 
+                        ? { ...conv, messages: finalMessages, updatedAt: new Date().toISOString() }
+                        : conv
+                )
+            );
+        } catch (error) {
+            console.error('Send message error:', error);
+            const errorMessage = { 
+                role: 'assistant', 
+                content: 'I apologize, but I encountered an error while processing your request. Please try again.',
+                timestamp: new Date().toISOString(),
+                isError: true
+            };
+            setMessages([...newMessages, errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const deleteConversation = (conversationId) => {
+        setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+        if (currentConversationId === conversationId) {
+            const remainingConversations = conversations.filter(conv => conv.id !== conversationId);
+            if (remainingConversations.length > 0) {
+                selectConversation(remainingConversations[0].id);
+            } else {
+                setCurrentConversationId(null);
+                setMessages([]);
+            }
+        }
+    };
+
+    React.useEffect(() => {
+        if (conversations.length === 0) {
+            createNewConversation();
+        }
+    }, []);
+
+    // Handle keyboard shortcuts
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        createNewConversation();
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        setSidebarOpen(prev => !prev);
+                        break;
+                }
+            }
+            if (e.key === 'Escape') {
                 setSidebarOpen(false);
             }
         };
 
-        const updateConversationTitle = (conversationId, firstMessage) => {
-            const title = firstMessage.length > 30 
-                ? firstMessage.substring(0, 30) + '...' 
-                : firstMessage;
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    return (
+        <div className="chat-container">
+            <Sidebar
+                conversations={conversations}
+                currentConversationId={currentConversationId}
+                onNewChat={createNewConversation}
+                onSelectConversation={selectConversation}
+                onDeleteConversation={deleteConversation}
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+            />
             
-            setConversations(prev => 
-                prev.map(conv => 
-                    conv.id === conversationId 
-                        ? { ...conv, title } 
-                        : conv
-                )
-            );
-        };
-
-        const sendMessage = async (messageContent) => {
-            if (!currentConversationId) {
-                createNewConversation();
-                return;
-            }
-
-            const userMessage = { role: 'user', content: messageContent };
-            const newMessages = [...messages, userMessage];
-            setMessages(newMessages);
-            setIsLoading(true);
-
-            if (messages.length === 0) {
-                updateConversationTitle(currentConversationId, messageContent);
-            }
-
-            try {
-                const response = await chatAgent(messageContent, messages);
-                const assistantMessage = { role: 'assistant', content: response };
-                const finalMessages = [...newMessages, assistantMessage];
-                
-                setMessages(finalMessages);
-                
-                setConversations(prev => 
-                    prev.map(conv => 
-                        conv.id === currentConversationId 
-                            ? { ...conv, messages: finalMessages }
-                            : conv
-                    )
-                );
-            } catch (error) {
-                console.error('Send message error:', error);
-                const errorMessage = { 
-                    role: 'assistant', 
-                    content: 'Sorry, I encountered an error. Please try again.' 
-                };
-                setMessages([...newMessages, errorMessage]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        React.useEffect(() => {
-            if (conversations.length === 0) {
-                createNewConversation();
-            }
-        }, []);
-
-        return (
-            <div className="chat-container">
-                <Sidebar
-                    conversations={conversations}
-                    currentConversationId={currentConversationId}
-                    onNewChat={createNewConversation}
-                    onSelectConversation={selectConversation}
-                    isOpen={sidebarOpen}
+            <main className="main-chat">
+                <Header 
+                    onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                    currentConversation={conversations.find(c => c.id === currentConversationId)}
                 />
                 
-                <main className="main-chat">
-                    <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-                    
-                    <div className="messages-container">
+                <div className="messages-container">
+                    <div className="messages-wrapper">
                         {messages.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center p-6">
-                                <div className="text-center">
-                                    <span className="material-icons text-yellow-500 text-6xl mb-4">hub</span>
-                                    <h1 className="text-2xl font-semibold text-gray-800">How can I help you today?</h1>
-                                </div>
-                            </div>
+                            <EmptyState onStartChat={createNewConversation} />
                         ) : (
                             <>
                                 {messages.map((message, index) => (
-                                    <ChatMessage key={index} message={message} />
+                                    <ChatMessage 
+                                        key={`${message.timestamp}-${index}`} 
+                                        message={message} 
+                                    />
                                 ))}
                                 {isLoading && (
                                     <ChatMessage 
-                                        message={{ role: 'assistant', content: '' }} 
+                                        message={{ 
+                                            role: 'assistant', 
+                                            content: '',
+                                            timestamp: new Date().toISOString()
+                                        }} 
                                         isLoading={true} 
                                     />
                                 )}
@@ -142,16 +198,16 @@ function App() {
                             </>
                         )}
                     </div>
-                    
-                    <MessageInput onSendMessage={sendMessage} isLoading={isLoading} />
-                </main>
-            </div>
-        );
-    } catch (error) {
-        console.error('App component error:', error);
-        reportError(error);
-        return <div className="p-4 text-red-500">Error loading application</div>;
-    }
+                </div>
+                
+                <MessageInput 
+                    onSendMessage={sendMessage} 
+                    isLoading={isLoading}
+                    disabled={!currentConversationId}
+                />
+            </main>
+        </div>
+    );
 }
 
 const root = createRoot(document.getElementById('root'));

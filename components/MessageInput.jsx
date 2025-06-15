@@ -1,37 +1,68 @@
 import React from 'react';
 
-export default function MessageInput({ onSendMessage, isLoading }) {
+export default function MessageInput({ onSendMessage, isLoading, disabled }) {
     const [message, setMessage] = React.useState('');
+    const textareaRef = React.useRef(null);
     
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (message.trim() && !isLoading) {
-            onSendMessage(message);
+        if (message.trim() && !isLoading && !disabled) {
+            onSendMessage(message.trim());
             setMessage('');
+            if (textareaRef.current) {
+                textareaRef.current.style.height = '44px';
+            }
         }
     };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit(e);
+        }
+    };
+
+    const handleTextareaChange = (e) => {
+        setMessage(e.target.value);
+        
+        // Auto-resize textarea
+        const textarea = e.target;
+        textarea.style.height = '44px';
+        textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    };
+
+    const canSend = message.trim() && !isLoading && !disabled;
     
     return (
-        <form onSubmit={handleSubmit} className="border-t border-amber-200 p-4 bg-white">
-            <div className="flex items-end gap-4">
-                <div className="flex-1">
+        <div className="message-input-container">
+            <div className="message-input-wrapper">
+                <form onSubmit={handleSubmit} className="message-input-form">
                     <textarea
+                        ref={textareaRef}
                         value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Type a message..."
+                        onChange={handleTextareaChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder={disabled ? "Start a new conversation to begin chatting..." : "Type your message here..."}
+                        className="message-textarea"
+                        disabled={disabled}
                         rows="1"
-                        className="w-full p-3 rounded-lg border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                        style={{ minHeight: '44px' }}
+                        aria-label="Message input"
                     />
-                </div>
-                <button
-                    type="submit"
-                    disabled={!message.trim() || isLoading}
-                    className="p-3 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <span className="material-icons">send</span>
-                </button>
+                    
+                    <button
+                        type="submit"
+                        disabled={!canSend}
+                        className="send-button"
+                        aria-label="Send message"
+                    >
+                        {isLoading ? (
+                            <span className="material-icons-round">hourglass_empty</span>
+                        ) : (
+                            <span className="material-icons-round">send</span>
+                        )}
+                    </button>
+                </form>
             </div>
-        </form>
+        </div>
     );
 }
