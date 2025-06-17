@@ -30,6 +30,11 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-gold: 0 4px 14px rgba(255, 215, 0, 0.25);
   
+  /* Status Colors */
+  --success-color: #10B981;
+  --error-color: #EF4444;
+  --warning-color: #F59E0B;
+  
   /* Spacing */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
@@ -263,6 +268,99 @@ body {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* Provider Status Dropdown */
+.provider-status-container {
+  position: relative;
+}
+
+.provider-status-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 280px;
+  z-index: 1000;
+  margin-top: var(--spacing-sm);
+}
+
+.provider-status-header {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.provider-status-header h3 {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.provider-status-list {
+  padding: var(--spacing-sm);
+}
+
+.provider-status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-normal);
+}
+
+.provider-status-item:hover {
+  background: var(--bg-secondary);
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.provider-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.provider-model {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.provider-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.provider-indicator.available {
+  color: var(--success-color);
+}
+
+.provider-indicator.unavailable {
+  color: var(--error-color);
+}
+
+.provider-indicator .material-icons-round {
+  font-size: 1.25rem;
+}
+
+.provider-status-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.provider-status-footer small {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
 }
 
 /* Button Components */
@@ -1053,6 +1151,12 @@ body {
 
   .auth-modal {
     margin: var(--spacing-md);
+  }
+
+  .provider-status-dropdown {
+    right: auto;
+    left: 0;
+    min-width: 260px;
   }
 }
 

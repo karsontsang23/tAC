@@ -6,13 +6,29 @@ export class AIService {
                 name: 'OpenAI',
                 endpoint: 'https://api.openai.com/v1/chat/completions',
                 apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-                model: 'gpt-3.5-turbo'
+                model: 'gpt-3.5-turbo',
+                priority: 1
+            },
+            {
+                name: 'Google AI',
+                endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+                apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY,
+                model: 'gemini-pro',
+                priority: 2
+            },
+            {
+                name: 'OpenRouter',
+                endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+                apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
+                model: 'anthropic/claude-3-haiku',
+                priority: 3
             },
             {
                 name: 'Anthropic',
                 endpoint: 'https://api.anthropic.com/v1/messages',
                 apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-                model: 'claude-3-haiku-20240307'
+                model: 'claude-3-haiku-20240307',
+                priority: 4
             }
         ];
         
@@ -29,20 +45,28 @@ export class AIService {
     }
 
     async generateResponse(message, conversationHistory = []) {
-        // Try API providers first
-        for (const provider of this.providers) {
-            if (provider.apiKey) {
-                try {
-                    const response = await this.callProvider(provider, message, conversationHistory);
-                    if (response) return response;
-                } catch (error) {
-                    console.warn(`${provider.name} API failed:`, error);
-                    continue;
+        // Sort providers by priority and filter those with API keys
+        const availableProviders = this.providers
+            .filter(provider => provider.apiKey)
+            .sort((a, b) => a.priority - b.priority);
+
+        // Try API providers in order of priority
+        for (const provider of availableProviders) {
+            try {
+                console.log(`Attempting to use ${provider.name} API...`);
+                const response = await this.callProvider(provider, message, conversationHistory);
+                if (response) {
+                    console.log(`Successfully got response from ${provider.name}`);
+                    return response;
                 }
+            } catch (error) {
+                console.warn(`${provider.name} API failed:`, error.message);
+                continue;
             }
         }
 
         // Fallback to enhanced mock responses
+        console.log('All API providers failed, using fallback response');
         return this.generateFallbackResponse(message, conversationHistory);
     }
 
@@ -55,10 +79,17 @@ export class AIService {
             { role: 'user', content: message }
         ];
 
-        if (provider.name === 'OpenAI') {
-            return await this.callOpenAI(provider, messages);
-        } else if (provider.name === 'Anthropic') {
-            return await this.callAnthropic(provider, messages);
+        switch (provider.name) {
+            case 'OpenAI':
+                return await this.callOpenAI(provider, messages);
+            case 'Google AI':
+                return await this.callGoogleAI(provider, message, conversationHistory);
+            case 'OpenRouter':
+                return await this.callOpenRouter(provider, messages);
+            case 'Anthropic':
+                return await this.callAnthropic(provider, messages);
+            default:
+                throw new Error(`Unknown provider: ${provider.name}`);
         }
     }
 
@@ -78,7 +109,95 @@ export class AIService {
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content;
+    }
+
+    async callGoogleAI(provider, message, conversationHistory) {
+        // Convert conversation history to Google AI format
+        const contents = [];
+        
+        // Add conversation history
+        conversationHistory.forEach(msg => {
+            contents.push({
+                role: msg.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: msg.content }]
+            });
+        });
+        
+        // Add current message
+        contents.push({
+            role: 'user',
+            parts: [{ text: message }]
+        });
+
+        const response = await fetch(`${provider.endpoint}?key=${provider.apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: contents,
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1000
+                },
+                safetySettings: [
+                    {
+                        category: 'HARM_CATEGORY_HARASSMENT',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    },
+                    {
+                        category: 'HARM_CATEGORY_HATE_SPEECH',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    },
+                    {
+                        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    },
+                    {
+                        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Google AI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text;
+    }
+
+    async callOpenRouter(provider, messages) {
+        const response = await fetch(provider.endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${provider.apiKey}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'AI Chat Application'
+            },
+            body: JSON.stringify({
+                model: provider.model,
+                messages: messages,
+                max_tokens: 1000,
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`OpenRouter API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
         }
 
         const data = await response.json();
@@ -101,7 +220,8 @@ export class AIService {
         });
 
         if (!response.ok) {
-            throw new Error(`Anthropic API error: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Anthropic API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
         }
 
         const data = await response.json();
@@ -138,6 +258,16 @@ export class AIService {
                 resolve(response);
             }, delay);
         });
+    }
+
+    // Get status of available providers
+    getProviderStatus() {
+        return this.providers.map(provider => ({
+            name: provider.name,
+            available: !!provider.apiKey,
+            model: provider.model,
+            priority: provider.priority
+        }));
     }
 }
 
