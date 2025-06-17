@@ -20,7 +20,7 @@ export class AIService {
                 name: 'OpenRouter',
                 endpoint: 'https://openrouter.ai/api/v1/chat/completions',
                 apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
-                model: 'anthropic/claude-3-haiku',
+                model: 'deepseek/deepseek-r1-0528:free',
                 priority: 3
             },
             {
