@@ -1,4 +1,5 @@
 import React from 'react';
+import { groupsAPI } from '../lib/groupsAPI.js';
 
 export default function Sidebar({ 
     conversations, 
@@ -6,12 +7,45 @@ export default function Sidebar({
     onNewChat, 
     onSelectConversation, 
     onDeleteConversation,
+    onSelectGroupChat,
     isOpen, 
     onClose,
     user,
     onSignOut,
-    onSignIn
+    onSignIn,
+    onOpenGroupManagement
 }) {
+    const [activeTab, setActiveTab] = React.useState('chats');
+    const [myGroups, setMyGroups] = React.useState([]);
+    const [invitations, setInvitations] = React.useState([]);
+
+    React.useEffect(() => {
+        if (user && activeTab === 'groups') {
+            loadGroups();
+        }
+        if (user) {
+            loadInvitations();
+        }
+    }, [user, activeTab]);
+
+    const loadGroups = async () => {
+        try {
+            const { data } = await groupsAPI.getMyGroups();
+            setMyGroups(data || []);
+        } catch (error) {
+            console.error('Error loading groups:', error);
+        }
+    };
+
+    const loadInvitations = async () => {
+        try {
+            const { data } = await groupsAPI.getMyInvitations();
+            setInvitations(data || []);
+        } catch (error) {
+            console.error('Error loading invitations:', error);
+        }
+    };
+
     const handleConversationClick = (conversationId) => {
         onSelectConversation(conversationId);
     };
@@ -21,6 +55,10 @@ export default function Sidebar({
         if (window.confirm('Are you sure you want to delete this conversation?')) {
             onDeleteConversation(conversationId);
         }
+    };
+
+    const handleGroupClick = (group) => {
+        onSelectGroupChat(group);
     };
 
     const formatDate = (dateString) => {
@@ -64,52 +102,166 @@ export default function Sidebar({
                         New Chat
                     </button>
                 </div>
+
+                {user && (
+                    <div className="sidebar-tabs">
+                        <button
+                            className={`sidebar-tab ${activeTab === 'chats' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('chats')}
+                        >
+                            <span className="material-icons-round">chat</span>
+                            對話
+                        </button>
+                        <button
+                            className={`sidebar-tab ${activeTab === 'groups' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('groups')}
+                        >
+                            <span className="material-icons-round">groups</span>
+                            群組
+                            {invitations.length > 0 && (
+                                <span className="notification-badge">{invitations.length}</span>
+                            )}
+                        </button>
+                    </div>
+                )}
                 
-                <div className="conversation-list">
+                <div className="sidebar-content">
                     {user ? (
-                        conversations.length > 0 ? (
-                            conversations.map(conversation => (
-                                <div
-                                    key={conversation.id}
-                                    className={`conversation-item ${conversation.id === currentConversationId ? 'active' : ''}`}
-                                    onClick={() => handleConversationClick(conversation.id)}
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            handleConversationClick(conversation.id);
-                                        }
-                                    }}
-                                    aria-label={`Select conversation: ${conversation.title}`}
-                                >
-                                    <div className="conversation-icon">
-                                        <span className="material-icons-round">chat_bubble</span>
-                                    </div>
-                                    <div className="conversation-content">
-                                        <div className="conversation-title">
-                                            {conversation.title}
+                        activeTab === 'chats' ? (
+                            <div className="conversation-list">
+                                {conversations.length > 0 ? (
+                                    conversations.map(conversation => (
+                                        <div
+                                            key={conversation.id}
+                                            className={`conversation-item ${conversation.id === currentConversationId ? 'active' : ''}`}
+                                            onClick={() => handleConversationClick(conversation.id)}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleConversationClick(conversation.id);
+                                                }
+                                            }}
+                                            aria-label={`Select conversation: ${conversation.title}`}
+                                        >
+                                            <div className="conversation-icon">
+                                                <span className="material-icons-round">chat_bubble</span>
+                                            </div>
+                                            <div className="conversation-content">
+                                                <div className="conversation-title">
+                                                    {conversation.title}
+                                                </div>
+                                                <div className="conversation-date">
+                                                    {formatDate(conversation.updated_at)}
+                                                </div>
+                                            </div>
+                                            <button
+                                                className="btn btn-ghost btn-icon conversation-delete"
+                                                onClick={(e) => handleDeleteClick(e, conversation.id)}
+                                                aria-label="Delete conversation"
+                                            >
+                                                <span className="material-icons-round">delete</span>
+                                            </button>
                                         </div>
-                                        <div className="conversation-date">
-                                            {formatDate(conversation.updated_at)}
+                                    ))
+                                ) : (
+                                    <div className="empty-conversations">
+                                        <div className="empty-conversations-icon">
+                                            <span className="material-icons-round">chat_bubble_outline</span>
                                         </div>
+                                        <p>No conversations yet</p>
+                                        <p className="empty-conversations-subtitle">Start a new chat to begin</p>
                                     </div>
-                                    <button
-                                        className="btn btn-ghost btn-icon conversation-delete"
-                                        onClick={(e) => handleDeleteClick(e, conversation.id)}
-                                        aria-label="Delete conversation"
+                                )}
+                            </div>
+                        ) : (
+                            <div className="groups-section">
+                                <div className="groups-header">
+                                    <h3>我的群組</h3>
+                                    <button 
+                                        onClick={onOpenGroupManagement}
+                                        className="btn btn-ghost btn-icon"
+                                        aria-label="群組管理"
                                     >
-                                        <span className="material-icons-round">delete</span>
+                                        <span className="material-icons-round">settings</span>
                                     </button>
                                 </div>
-                            ))
-                        ) : (
-                            <div className="empty-conversations">
-                                <div className="empty-conversations-icon">
-                                    <span className="material-icons-round">chat_bubble_outline</span>
+                                
+                                <div className="groups-list">
+                                    {myGroups.length > 0 ? (
+                                        myGroups.map(group => (
+                                            <div
+                                                key={group.id}
+                                                className="group-item"
+                                                onClick={() => handleGroupClick(group)}
+                                                role="button"
+                                                tabIndex={0}
+                                            >
+                                                <div className="group-avatar">
+                                                    {group.avatar_url ? (
+                                                        <img src={group.avatar_url} alt={group.name} />
+                                                    ) : (
+                                                        <span className="material-icons-round">groups</span>
+                                                    )}
+                                                </div>
+                                                <div className="group-info">
+                                                    <div className="group-name">{group.name}</div>
+                                                    <div className="group-meta">
+                                                        <span className="member-count">
+                                                            {group.member_count?.[0]?.count || 0} 成員
+                                                        </span>
+                                                        {group.is_private && (
+                                                            <span className="material-icons-round private-icon">lock</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="empty-groups">
+                                            <div className="empty-groups-icon">
+                                                <span className="material-icons-round">groups</span>
+                                            </div>
+                                            <p>還沒有群組</p>
+                                            <button 
+                                                onClick={onOpenGroupManagement}
+                                                className="btn btn-primary btn-sm"
+                                            >
+                                                創建群組
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <p>No conversations yet</p>
-                                <p className="empty-conversations-subtitle">Start a new chat to begin</p>
+
+                                {invitations.length > 0 && (
+                                    <div className="invitations-section">
+                                        <h4>群組邀請</h4>
+                                        <div className="invitations-list">
+                                            {invitations.slice(0, 3).map(invitation => (
+                                                <div key={invitation.id} className="invitation-item">
+                                                    <span className="invitation-text">
+                                                        {invitation.group.name}
+                                                    </span>
+                                                    <button 
+                                                        onClick={onOpenGroupManagement}
+                                                        className="btn btn-primary btn-xs"
+                                                    >
+                                                        查看
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {invitations.length > 3 && (
+                                                <button 
+                                                    onClick={onOpenGroupManagement}
+                                                    className="view-all-invitations"
+                                                >
+                                                    查看全部 {invitations.length} 個邀請
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )
                     ) : (

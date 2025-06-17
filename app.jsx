@@ -6,18 +6,24 @@ import ChatMessage from './components/ChatMessage.jsx';
 import MessageInput from './components/MessageInput.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import AuthModal from './components/AuthModal.jsx';
+import GroupManagement from './components/GroupManagement.jsx';
+import GroupChat from './components/GroupChat.jsx';
 import { chatAPI, supabase } from './lib/supabase.js';
+import { groupsAPI } from './lib/groupsAPI.js';
 import { aiService } from './utils/aiService.js';
 
 function App() {
     const [user, setUser] = React.useState(null);
     const [authLoading, setAuthLoading] = React.useState(true);
     const [showAuthModal, setShowAuthModal] = React.useState(false);
+    const [showGroupManagement, setShowGroupManagement] = React.useState(false);
     const [conversations, setConversations] = React.useState([]);
     const [currentConversationId, setCurrentConversationId] = React.useState(null);
     const [messages, setMessages] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(false);
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
+    const [currentView, setCurrentView] = React.useState('chat'); // 'chat' | 'group-chat'
+    const [selectedGroup, setSelectedGroup] = React.useState(null);
     const messagesEndRef = React.useRef(null);
 
     const scrollToBottom = () => {
@@ -36,6 +42,8 @@ function App() {
                 setUser(user);
                 if (user) {
                     await loadConversations();
+                    // 確保用戶資料存在於users表中
+                    await ensureUserProfile(user);
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);
@@ -51,6 +59,7 @@ function App() {
             setUser(session?.user || null);
             if (session?.user) {
                 await loadConversations();
+                await ensureUserProfile(session.user);
             } else {
                 setConversations([]);
                 setMessages([]);
@@ -60,6 +69,30 @@ function App() {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    const ensureUserProfile = async (user) => {
+        try {
+            // 檢查用戶是否已存在於users表中
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', user.id)
+                .single();
+
+            if (!existingUser) {
+                // 如果不存在，創建用戶資料
+                await supabase
+                    .from('users')
+                    .insert([{
+                        id: user.id,
+                        email: user.email,
+                        display_name: user.user_metadata?.display_name || user.email.split('@')[0]
+                    }]);
+            }
+        } catch (error) {
+            console.error('Error ensuring user profile:', error);
+        }
+    };
 
     const loadConversations = async () => {
         try {
@@ -91,6 +124,7 @@ function App() {
             setCurrentConversationId(data.id);
             setMessages([]);
             setSidebarOpen(false);
+            setCurrentView('chat');
         } catch (error) {
             console.error('Error creating conversation:', error);
         }
@@ -105,10 +139,17 @@ function App() {
             
             setMessages(data || []);
             setSidebarOpen(false);
+            setCurrentView('chat');
         } catch (error) {
             console.error('Error loading messages:', error);
             setMessages([]);
         }
+    };
+
+    const selectGroupChat = (group) => {
+        setSelectedGroup(group);
+        setCurrentView('group-chat');
+        setSidebarOpen(false);
     };
 
     const updateConversationTitle = async (conversationId, firstMessage) => {
@@ -224,6 +265,8 @@ function App() {
             setConversations([]);
             setMessages([]);
             setCurrentConversationId(null);
+            setCurrentView('chat');
+            setSelectedGroup(null);
         } catch (error) {
             console.error('Sign out error:', error);
         }
@@ -242,17 +285,22 @@ function App() {
                         e.preventDefault();
                         setSidebarOpen(prev => !prev);
                         break;
+                    case 'g':
+                        e.preventDefault();
+                        if (user) setShowGroupManagement(true);
+                        break;
                 }
             }
             if (e.key === 'Escape') {
                 setSidebarOpen(false);
                 setShowAuthModal(false);
+                setShowGroupManagement(false);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [user]);
 
     if (authLoading) {
         return (
@@ -277,60 +325,72 @@ function App() {
                 onNewChat={createNewConversation}
                 onSelectConversation={selectConversation}
                 onDeleteConversation={deleteConversation}
+                onSelectGroupChat={selectGroupChat}
                 isOpen={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
                 user={user}
                 onSignOut={handleSignOut}
                 onSignIn={() => setShowAuthModal(true)}
+                onOpenGroupManagement={() => setShowGroupManagement(true)}
             />
             
             <main className="main-chat">
-                <Header 
-                    onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-                    currentConversation={conversations.find(c => c.id === currentConversationId)}
-                    user={user}
-                    onSignIn={() => setShowAuthModal(true)}
-                    onSignOut={handleSignOut}
-                />
-                
-                <div className="messages-container">
-                    <div className="messages-wrapper">
-                        {messages.length === 0 ? (
-                            <EmptyState 
-                                onStartChat={createNewConversation} 
-                                user={user}
-                                onSignIn={() => setShowAuthModal(true)}
-                            />
-                        ) : (
-                            <>
-                                {messages.map((message, index) => (
-                                    <ChatMessage 
-                                        key={message.id || `${message.timestamp}-${index}`} 
-                                        message={message} 
+                {currentView === 'chat' ? (
+                    <>
+                        <Header 
+                            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                            currentConversation={conversations.find(c => c.id === currentConversationId)}
+                            user={user}
+                            onSignIn={() => setShowAuthModal(true)}
+                            onSignOut={handleSignOut}
+                        />
+                        
+                        <div className="messages-container">
+                            <div className="messages-wrapper">
+                                {messages.length === 0 ? (
+                                    <EmptyState 
+                                        onStartChat={createNewConversation} 
+                                        user={user}
+                                        onSignIn={() => setShowAuthModal(true)}
                                     />
-                                ))}
-                                {isLoading && (
-                                    <ChatMessage 
-                                        message={{ 
-                                            role: 'assistant', 
-                                            content: '',
-                                            timestamp: new Date().toISOString()
-                                        }} 
-                                        isLoading={true} 
-                                    />
+                                ) : (
+                                    <>
+                                        {messages.map((message, index) => (
+                                            <ChatMessage 
+                                                key={message.id || `${message.timestamp}-${index}`} 
+                                                message={message} 
+                                            />
+                                        ))}
+                                        {isLoading && (
+                                            <ChatMessage 
+                                                message={{ 
+                                                    role: 'assistant', 
+                                                    content: '',
+                                                    timestamp: new Date().toISOString()
+                                                }} 
+                                                isLoading={true} 
+                                            />
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </>
                                 )}
-                                <div ref={messagesEndRef} />
-                            </>
-                        )}
-                    </div>
-                </div>
-                
-                <MessageInput 
-                    onSendMessage={sendMessage} 
-                    isLoading={isLoading}
-                    disabled={!user || !currentConversationId}
-                    user={user}
-                />
+                            </div>
+                        </div>
+                        
+                        <MessageInput 
+                            onSendMessage={sendMessage} 
+                            isLoading={isLoading}
+                            disabled={!user || !currentConversationId}
+                            user={user}
+                        />
+                    </>
+                ) : currentView === 'group-chat' && selectedGroup ? (
+                    <GroupChat 
+                        group={selectedGroup}
+                        user={user}
+                        onBack={() => setCurrentView('chat')}
+                    />
+                ) : null}
             </main>
 
             <AuthModal
@@ -341,6 +401,13 @@ function App() {
                     loadConversations();
                 }}
             />
+
+            {showGroupManagement && (
+                <GroupManagement
+                    user={user}
+                    onClose={() => setShowGroupManagement(false)}
+                />
+            )}
         </div>
     );
 }

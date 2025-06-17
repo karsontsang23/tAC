@@ -10,7 +10,7 @@ export class AIService {
                 priority: 1
             },
             {
-                name: 'Google AI',
+                name: 'Google AI Studio',
                 endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
                 apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY,
                 model: 'gemini-pro',
