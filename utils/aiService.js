@@ -7,28 +7,28 @@ export class AIService {
                 endpoint: 'https://api.openai.com/v1/chat/completions',
                 apiKey: import.meta.env.VITE_OPENAI_API_KEY,
                 model: 'gpt-3.5-turbo',
-                priority: 1
+                priority: 0
             },
             {
                 name: 'Google AI Studio',
                 endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
                 apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY,
                 model: 'gemini-pro',
-                priority: 2
+                priority: 1
             },
             {
                 name: 'OpenRouter',
                 endpoint: 'https://openrouter.ai/api/v1/chat/completions',
                 apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
                 model: 'deepseek/deepseek-r1-0528:free',
-                priority: 3
+                priority: 2
             },
             {
                 name: 'Anthropic',
                 endpoint: 'https://api.anthropic.com/v1/messages',
                 apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
                 model: 'claude-3-haiku-20240307',
-                priority: 4
+                priority: 3
             }
         ];
         
