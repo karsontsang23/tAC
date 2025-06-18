@@ -8,6 +8,7 @@ import EmptyState from './components/EmptyState.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import GroupManagement from './components/GroupManagement.jsx';
 import GroupChat from './components/GroupChat.jsx';
+import UserManagement from './components/UserManagement.jsx';
 import { chatAPI, supabase } from './lib/supabase.js';
 import { groupsAPI } from './lib/groupsAPI.js';
 import { aiService } from './utils/aiService.js';
@@ -17,6 +18,7 @@ function App() {
     const [authLoading, setAuthLoading] = React.useState(true);
     const [showAuthModal, setShowAuthModal] = React.useState(false);
     const [showGroupManagement, setShowGroupManagement] = React.useState(false);
+    const [showUserManagement, setShowUserManagement] = React.useState(false);
     const [conversations, setConversations] = React.useState([]);
     const [currentConversationId, setCurrentConversationId] = React.useState(null);
     const [messages, setMessages] = React.useState([]);
@@ -289,12 +291,17 @@ function App() {
                         e.preventDefault();
                         if (user) setShowGroupManagement(true);
                         break;
+                    case 'u':
+                        e.preventDefault();
+                        if (user) setShowUserManagement(true);
+                        break;
                 }
             }
             if (e.key === 'Escape') {
                 setSidebarOpen(false);
                 setShowAuthModal(false);
                 setShowGroupManagement(false);
+                setShowUserManagement(false);
             }
         };
 
@@ -332,6 +339,7 @@ function App() {
                 onSignOut={handleSignOut}
                 onSignIn={() => setShowAuthModal(true)}
                 onOpenGroupManagement={() => setShowGroupManagement(true)}
+                onOpenUserManagement={() => setShowUserManagement(true)}
             />
             
             <main className="main-chat">
@@ -343,6 +351,7 @@ function App() {
                             user={user}
                             onSignIn={() => setShowAuthModal(true)}
                             onSignOut={handleSignOut}
+                            onOpenUserManagement={() => setShowUserManagement(true)}
                         />
                         
                         <div className="messages-container">
@@ -406,6 +415,13 @@ function App() {
                 <GroupManagement
                     user={user}
                     onClose={() => setShowGroupManagement(false)}
+                />
+            )}
+
+            {showUserManagement && (
+                <UserManagement
+                    user={user}
+                    onClose={() => setShowUserManagement(false)}
                 />
             )}
         </div>

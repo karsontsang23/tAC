@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Header({ onToggleSidebar, currentConversation, user, onSignIn, onSignOut }) {
+export default function Header({ onToggleSidebar, currentConversation, user, onSignIn, onSignOut, onOpenUserManagement }) {
     const [showProviderStatus, setShowProviderStatus] = React.useState(false);
     const [providerStatus, setProviderStatus] = React.useState([]);
 
@@ -33,9 +33,18 @@ export default function Header({ onToggleSidebar, currentConversation, user, onS
                             <span className="user-email-header">{user.email}</span>
                         </div>
                         <button 
+                            onClick={onOpenUserManagement}
+                            className="btn btn-ghost btn-icon"
+                            aria-label="用戶設定"
+                            title="用戶設定"
+                        >
+                            <span className="material-icons-round">account_circle</span>
+                        </button>
+                        <button 
                             onClick={onSignOut}
                             className="btn btn-ghost btn-icon"
                             aria-label="Sign out"
+                            title="登出"
                         >
                             <span className="material-icons-round">logout</span>
                         </button>

@@ -13,7 +13,8 @@ export default function Sidebar({
     user,
     onSignOut,
     onSignIn,
-    onOpenGroupManagement
+    onOpenGroupManagement,
+    onOpenUserManagement
 }) {
     const [activeTab, setActiveTab] = React.useState('chats');
     const [myGroups, setMyGroups] = React.useState([]);
@@ -292,13 +293,24 @@ export default function Sidebar({
                                 <div className="user-email">{user.email}</div>
                                 <div className="user-status">Online</div>
                             </div>
-                            <button
-                                onClick={onSignOut}
-                                className="btn btn-ghost btn-icon"
-                                aria-label="Sign out"
-                            >
-                                <span className="material-icons-round">logout</span>
-                            </button>
+                            <div className="user-actions">
+                                <button
+                                    onClick={onOpenUserManagement}
+                                    className="btn btn-ghost btn-icon"
+                                    aria-label="用戶設定"
+                                    title="用戶設定"
+                                >
+                                    <span className="material-icons-round">settings</span>
+                                </button>
+                                <button
+                                    onClick={onSignOut}
+                                    className="btn btn-ghost btn-icon"
+                                    aria-label="Sign out"
+                                    title="登出"
+                                >
+                                    <span className="material-icons-round">logout</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
