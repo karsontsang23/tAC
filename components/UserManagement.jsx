@@ -23,17 +23,32 @@ export default function UserManagement({ user, onClose }) {
                 .from('users')
                 .select('*')
                 .eq('id', user.id)
-                .single();
+                .limit(1);
 
-            if (data) {
+            if (error) throw error;
+
+            if (data && data.length > 0) {
                 setProfile({
-                    display_name: data.display_name || user.email.split('@')[0],
-                    email: data.email,
-                    avatar_url: data.avatar_url || ''
+                    display_name: data[0].display_name || user.email.split('@')[0],
+                    email: data[0].email,
+                    avatar_url: data[0].avatar_url || ''
+                });
+            } else {
+                // If no profile exists, use default values from user object
+                setProfile({
+                    display_name: user.user_metadata?.display_name || user.email.split('@')[0],
+                    email: user.email,
+                    avatar_url: user.user_metadata?.avatar_url || ''
                 });
             }
         } catch (error) {
             console.error('Error loading profile:', error);
+            // Fallback to user object data if database query fails
+            setProfile({
+                display_name: user.user_metadata?.display_name || user.email.split('@')[0],
+                email: user.email,
+                avatar_url: user.user_metadata?.avatar_url || ''
+            });
         }
     };
 

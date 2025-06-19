@@ -75,14 +75,15 @@ function App() {
     const ensureUserProfile = async (user) => {
         try {
             // 檢查用戶是否已存在於users表中
-            const { data: existingUser } = await supabase
+            const { data, error } = await supabase
                 .from('users')
                 .select('id')
-                .eq('id', user.id)
-                .single();
+                .eq('id', user.id);
 
-            if (!existingUser) {
-                // 如果不存在，創建用戶資料
+            if (error) throw error;
+
+            // 如果不存在，創建用戶資料
+            if (!data || data.length === 0) {
                 await supabase
                     .from('users')
                     .insert([{
