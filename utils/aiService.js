@@ -1,37 +1,9 @@
-// Enhanced AI service with multiple providers and fallbacks
+// Enhanced AI service with user-specific API keys
+import { apiKeysAPI } from '../lib/apiKeysAPI.js';
+
 export class AIService {
     constructor() {
-        this.providers = [
-            {
-                name: 'OpenAI',
-                endpoint: 'https://api.openai.com/v1/chat/completions',
-                apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-                model: 'gpt-3.5-turbo',
-                priority: 0
-            },
-            {
-                name: 'Google AI Studio',
-                endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-                apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY,
-                model: 'gemini-pro',
-                priority: 1
-            },
-            {
-                name: 'OpenRouter',
-                endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-                apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
-                model: 'deepseek/deepseek-r1-0528',
-                priority: 2
-            },
-            {
-                name: 'Anthropic',
-                endpoint: 'https://api.anthropic.com/v1/messages',
-                apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-                model: 'claude-3-haiku-20240307',
-                priority: 3
-            }
-        ];
-        
+        this.userApiKeys = {};
         this.fallbackResponses = [
             "I understand your question. Let me provide you with a comprehensive answer that addresses your specific needs.",
             "That's an interesting point you've raised. Here's my perspective on this topic, along with some additional insights.",
@@ -44,29 +16,87 @@ export class AIService {
         ];
     }
 
+    async loadUserApiKeys() {
+        try {
+            const { data, error } = await apiKeysAPI.getUserApiKeys();
+            if (error) throw error;
+            
+            this.userApiKeys = {};
+            data?.forEach(item => {
+                this.userApiKeys[item.provider] = item.api_key;
+            });
+        } catch (error) {
+            console.error('載入用戶API密鑰失敗:', error);
+            this.userApiKeys = {};
+        }
+    }
+
+    getProviders() {
+        return [
+            {
+                name: 'OpenAI',
+                endpoint: 'https://api.openai.com/v1/chat/completions',
+                model: 'gpt-3.5-turbo',
+                priority: 0,
+                provider: 'openai'
+            },
+            {
+                name: 'Google AI Studio',
+                endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+                model: 'gemini-pro',
+                priority: 1,
+                provider: 'google_ai'
+            },
+            {
+                name: 'OpenRouter',
+                endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+                model: 'deepseek/deepseek-r1-0528',
+                priority: 2,
+                provider: 'openrouter'
+            },
+            {
+                name: 'Anthropic',
+                endpoint: 'https://api.anthropic.com/v1/messages',
+                model: 'claude-3-haiku-20240307',
+                priority: 3,
+                provider: 'anthropic'
+            }
+        ];
+    }
+
     async generateResponse(message, conversationHistory = []) {
-        // Sort providers by priority and filter those with API keys
-        const availableProviders = this.providers
-            .filter(provider => provider.apiKey)
+        // 載入用戶的API密鑰
+        await this.loadUserApiKeys();
+
+        // 獲取可用的提供商（有API密鑰的）
+        const providers = this.getProviders();
+        const availableProviders = providers
+            .filter(provider => this.userApiKeys[provider.provider])
             .sort((a, b) => a.priority - b.priority);
 
-        // Try API providers in order of priority
+        // 如果沒有可用的API密鑰，使用fallback
+        if (availableProviders.length === 0) {
+            console.log('沒有可用的API密鑰，使用fallback回應');
+            return this.generateFallbackResponse(message, conversationHistory);
+        }
+
+        // 嘗試使用可用的提供商
         for (const provider of availableProviders) {
             try {
-                console.log(`Attempting to use ${provider.name} API...`);
+                console.log(`嘗試使用 ${provider.name} API...`);
                 const response = await this.callProvider(provider, message, conversationHistory);
                 if (response) {
-                    console.log(`Successfully got response from ${provider.name}`);
+                    console.log(`成功從 ${provider.name} 獲得回應`);
                     return response;
                 }
             } catch (error) {
-                console.warn(`${provider.name} API failed:`, error.message);
+                console.warn(`${provider.name} API 失敗:`, error.message);
                 continue;
             }
         }
 
-        // Fallback to enhanced mock responses
-        console.log('All API providers failed, using fallback response');
+        // 所有API都失敗，使用fallback
+        console.log('所有API提供商都失敗，使用fallback回應');
         return this.generateFallbackResponse(message, conversationHistory);
     }
 
@@ -79,26 +109,31 @@ export class AIService {
             { role: 'user', content: message }
         ];
 
-        switch (provider.name) {
-            case 'OpenAI':
-                return await this.callOpenAI(provider, messages);
-            case 'Google AI Studio':
-                return await this.callGoogleAI(provider, message, conversationHistory);
-            case 'OpenRouter':
-                return await this.callOpenRouter(provider, messages);
-            case 'Anthropic':
-                return await this.callAnthropic(provider, messages);
+        const apiKey = this.userApiKeys[provider.provider];
+        if (!apiKey) {
+            throw new Error(`沒有 ${provider.name} 的API密鑰`);
+        }
+
+        switch (provider.provider) {
+            case 'openai':
+                return await this.callOpenAI(provider, messages, apiKey);
+            case 'google_ai':
+                return await this.callGoogleAI(provider, message, conversationHistory, apiKey);
+            case 'openrouter':
+                return await this.callOpenRouter(provider, messages, apiKey);
+            case 'anthropic':
+                return await this.callAnthropic(provider, messages, apiKey);
             default:
-                throw new Error(`Unknown provider: ${provider.name}`);
+                throw new Error(`未知的提供商: ${provider.provider}`);
         }
     }
 
-    async callOpenAI(provider, messages) {
+    async callOpenAI(provider, messages, apiKey) {
         const response = await fetch(provider.endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${provider.apiKey}`
+                'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
                 model: provider.model,
@@ -117,11 +152,9 @@ export class AIService {
         return data.choices[0]?.message?.content;
     }
 
-    async callGoogleAI(provider, message, conversationHistory) {
-        // Convert conversation history to Google AI format
+    async callGoogleAI(provider, message, conversationHistory, apiKey) {
         const contents = [];
         
-        // Add conversation history
         conversationHistory.forEach(msg => {
             contents.push({
                 role: msg.role === 'assistant' ? 'model' : 'user',
@@ -129,13 +162,12 @@ export class AIService {
             });
         });
         
-        // Add current message
         contents.push({
             role: 'user',
             parts: [{ text: message }]
         });
 
-        const response = await fetch(`${provider.endpoint}?key=${provider.apiKey}`, {
+        const response = await fetch(`${provider.endpoint}?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -147,25 +179,7 @@ export class AIService {
                     topK: 40,
                     topP: 0.95,
                     maxOutputTokens: 1000
-                },
-                safetySettings: [
-                    {
-                        category: 'HARM_CATEGORY_HARASSMENT',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    },
-                    {
-                        category: 'HARM_CATEGORY_HATE_SPEECH',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    },
-                    {
-                        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    },
-                    {
-                        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    }
-                ]
+                }
             })
         });
 
@@ -178,9 +192,9 @@ export class AIService {
         return data.candidates?.[0]?.content?.parts?.[0]?.text;
     }
 
-    async callOpenRouter(provider, messages) {
+    async callOpenRouter(provider, messages, apiKey) {
         const headers = {
-            'Authorization': `Bearer ${provider.apiKey}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
         };
 
@@ -217,12 +231,12 @@ export class AIService {
         return data.choices[0]?.message?.content;
     }
 
-    async callAnthropic(provider, messages) {
+    async callAnthropic(provider, messages, apiKey) {
         const response = await fetch(provider.endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': provider.apiKey,
+                'x-api-key': apiKey,
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
@@ -242,15 +256,13 @@ export class AIService {
     }
 
     generateFallbackResponse(message, conversationHistory) {
-        // Simulate realistic API delay
         return new Promise((resolve) => {
-            const delay = Math.random() * 2000 + 1000; // 1-3 seconds
+            const delay = Math.random() * 2000 + 1000;
             
             setTimeout(() => {
                 const lowerMessage = message.toLowerCase();
                 let response;
                 
-                // Context-aware responses based on message content
                 if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
                     response = "Hello! It's great to meet you. I'm here to help with any questions or tasks you might have. What would you like to explore today?";
                 } else if (lowerMessage.includes('help')) {
@@ -264,7 +276,6 @@ export class AIService {
                 } else if (lowerMessage.includes('how to')) {
                     response = "Great question! I'll walk you through the process step by step, making sure to cover all the important details and potential considerations.";
                 } else {
-                    // Use random fallback response
                     response = this.fallbackResponses[Math.floor(Math.random() * this.fallbackResponses.length)];
                 }
                 
@@ -273,11 +284,13 @@ export class AIService {
         });
     }
 
-    // Get status of available providers
-    getProviderStatus() {
-        return this.providers.map(provider => ({
+    // 獲取提供商狀態
+    async getProviderStatus() {
+        await this.loadUserApiKeys();
+        
+        return this.getProviders().map(provider => ({
             name: provider.name,
-            available: !!provider.apiKey,
+            available: !!this.userApiKeys[provider.provider],
             model: provider.model,
             priority: provider.priority
         }));
