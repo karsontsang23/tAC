@@ -20,7 +20,7 @@ export class AIService {
                 name: 'OpenRouter',
                 endpoint: 'https://openrouter.ai/api/v1/chat/completions',
                 apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
-                model: 'deepseek/deepseek-r1-0528:free',
+                model: 'deepseek/deepseek-r1-0528',
                 priority: 2
             },
             {
@@ -82,7 +82,7 @@ export class AIService {
         switch (provider.name) {
             case 'OpenAI':
                 return await this.callOpenAI(provider, messages);
-            case 'Google AI':
+            case 'Google AI Studio':
                 return await this.callGoogleAI(provider, message, conversationHistory);
             case 'OpenRouter':
                 return await this.callOpenRouter(provider, messages);
@@ -179,20 +179,33 @@ export class AIService {
     }
 
     async callOpenRouter(provider, messages) {
+        const headers = {
+            'Authorization': `Bearer ${provider.apiKey}`,
+            'Content-Type': 'application/json'
+        };
+
+        const payload = {
+            model: provider.model,
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.7,
+            presence_penalty: 0.1,
+            provider: {
+                allow_fallbacks: true,
+                sort: 'latency',
+                data_collection: 'allow',
+                quantizations: [
+                    'fp8',
+                    'int4',
+                    'bf16'
+                ]
+            }
+        };
+
         const response = await fetch(provider.endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${provider.apiKey}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'AI Chat Application'
-            },
-            body: JSON.stringify({
-                model: provider.model,
-                messages: messages,
-                max_tokens: 1000,
-                temperature: 0.7
-            })
+            headers,
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
